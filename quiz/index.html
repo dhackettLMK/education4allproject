@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Battle Quiz — Education4All</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07090f; --panel:#0d1220; --panel2:#131a2e; --border:#2a3b6e;
+  --neon:#3ef0a0; --cyan:#41d9ff; --amber:#ffc93e; --red:#ff5a6e; --purple:#b48cff;
+  --text:#d8e6ff; --dim:#7d8fb8;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'VT323', monospace; font-size:20px;
+  overflow-x:hidden; min-height:100%;
+  background-image:
+    radial-gradient(ellipse at 50% -20%, #14204a55 0%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent 0 2px, #ffffff03 2px 4px);
+}
+.wrap{max-width:900px; margin:0 auto; padding:16px; min-height:100vh; display:flex; flex-direction:column;}
+.pixel{font-family:'Press Start 2P', monospace;}
+.screen{display:none; flex:1; flex-direction:column;}
+.screen.active{display:flex;}
+/* ---------- TITLE ---------- */
+#titleScreen{align-items:center; justify-content:center; text-align:center; gap:22px; padding:40px 10px;}
+.logo{font-family:'Press Start 2P',monospace; font-size:clamp(20px,4.5vw,40px); line-height:1.5;
+  color:var(--neon); text-shadow:0 0 12px #3ef0a088, 4px 4px 0 #0a4d33;}
+.logo span{color:var(--cyan); text-shadow:0 0 12px #41d9ff88, 4px 4px 0 #0a3a4d;}
+.subtitle{color:var(--dim); font-size:22px; max-width:560px;}
+.blink{animation:blink 1.1s steps(2) infinite;}
+@keyframes blink{50%{opacity:0;}}
+.rackArt{display:flex; gap:10px; justify-content:center; margin:6px 0;}
+.rack{width:46px; height:86px; background:var(--panel2); border:2px solid var(--border); border-radius:4px;
+  display:flex; flex-direction:column; gap:4px; padding:6px; position:relative;}
+.rack i{display:block; height:6px; background:#1c2b52; border-radius:2px; position:relative; overflow:hidden;}
+.rack i::after{content:''; position:absolute; right:2px; top:1px; width:4px; height:4px; border-radius:50%;
+  background:var(--neon); animation:led 1.4s infinite;}
+.rack:nth-child(2) i::after{background:var(--cyan); animation-duration:0.9s;}
+.rack:nth-child(3) i::after{background:var(--amber); animation-duration:1.8s;}
+.rack:nth-child(4) i::after{background:var(--red); animation-duration:1.2s;}
+@keyframes led{0%,60%{opacity:1;}70%,80%{opacity:.15;}100%{opacity:1;}}
+/* ---------- BUTTONS ---------- */
+.btn{
+  font-family:'Press Start 2P',monospace; font-size:13px; color:var(--bg);
+  background:var(--neon); border:none; padding:14px 22px; cursor:pointer;
+  box-shadow:0 5px 0 #1a8f5c, 0 0 18px #3ef0a044; border-radius:4px;
+  transition:transform .06s, box-shadow .06s; letter-spacing:1px;
+}
+.btn:hover{transform:translateY(2px); box-shadow:0 3px 0 #1a8f5c;}
+.btn:active{transform:translateY(5px); box-shadow:0 0 0 #1a8f5c;}
+.btn.cyan{background:var(--cyan); box-shadow:0 5px 0 #1a7a99, 0 0 18px #41d9ff44;}
+.btn.cyan:hover{box-shadow:0 3px 0 #1a7a99;}
+.btn.ghost{background:transparent; color:var(--dim); box-shadow:none; border:2px solid var(--border);}
+.btn.ghost:hover{color:var(--text); border-color:var(--dim);}
+.btn.small{font-size:10px; padding:10px 14px;}
+.btn:disabled{opacity:.4; cursor:default;}
+/* ---------- LEVEL SELECT ---------- */
+#levelScreen h2, #codexScreen h2{margin-bottom:6px;}
+.screenHead{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; flex-wrap:wrap; gap:10px;}
+.hint{color:var(--dim); font-size:18px;}
+.levels{display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:14px;}
+.lvlCard{background:var(--panel); border:2px solid var(--border); border-radius:8px; padding:16px;
+  cursor:pointer; position:relative; transition:border-color .15s, transform .15s;}
+.lvlCard:hover:not(.locked){border-color:var(--neon); transform:translateY(-3px);}
+.lvlCard.locked{opacity:.45; cursor:default; filter:grayscale(.6);}
+.lvlCard .lvlNum{font-family:'Press Start 2P',monospace; font-size:10px; color:var(--dim); margin-bottom:8px;}
+.lvlCard .lvlEmoji{font-size:38px; margin-bottom:6px; display:block;}
+.lvlCard .lvlName{font-family:'Press Start 2P',monospace; font-size:12px; color:var(--cyan); line-height:1.6; margin-bottom:8px;}
+.lvlCard .lvlDesc{color:var(--dim); font-size:17px; line-height:1.25;}
+.lvlCard .stars{position:absolute; top:12px; right:12px; color:var(--amber); font-size:16px; letter-spacing:2px;}
+.lvlCard.boss{border-color:#6e2a3b;}
+.lvlCard.boss:hover:not(.locked){border-color:var(--red);}
+.lockTag{position:absolute; bottom:10px; right:12px; font-size:15px; color:var(--dim);}
+/* ---------- BATTLE ---------- */
+#battleScreen{gap:10px;}
+.hud{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;}
+.hudBox{background:var(--panel); border:2px solid var(--border); border-radius:6px; padding:8px 14px; font-size:18px;}
+.hudBox b{color:var(--amber);}
+.hearts{font-size:22px; letter-spacing:3px;}
+.combo{color:var(--purple);}
+.arena{background:linear-gradient(180deg,#0c1226,#0a0e1c); border:2px solid var(--border); border-radius:10px;
+  padding:18px; display:flex; align-items:center; justify-content:space-between; gap:16px; position:relative; min-height:170px;}
+.arena.shake{animation:shake .35s;}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(7px);}60%{transform:translateX(-5px);}80%{transform:translateX(4px);}}
+.fighter{text-align:center; width:44%;}
+.sprite{font-size:64px; display:inline-block; animation:idle 2.4s ease-in-out infinite; filter:drop-shadow(0 6px 8px #00000088);}
+@keyframes idle{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+.sprite.hit{animation:hitflash .4s;}
+@keyframes hitflash{0%,100%{filter:none; transform:scale(1);}30%{filter:brightness(3) hue-rotate(90deg); transform:scale(.9) rotate(-6deg);}}
+.sprite.attack{animation:lunge .4s;}
+@keyframes lunge{30%{transform:translateX(-30px) scale(1.1);}}
+.fName{font-family:'Press Start 2P',monospace; font-size:11px; margin:8px 0 6px; color:var(--text); line-height:1.5;}
+.hpBar{height:16px; background:#0a0f1e; border:2px solid var(--border); border-radius:8px; overflow:hidden;}
+.hpFill{height:100%; background:linear-gradient(90deg,var(--red),var(--amber)); width:100%; transition:width .5s; border-radius:5px;}
+.hpFill.player{background:linear-gradient(90deg,#1a8f5c,var(--neon));}
+.vs{font-family:'Press Start 2P',monospace; color:var(--red); font-size:18px; text-shadow:0 0 10px #ff5a6e77;}
+.speech{position:absolute; top:8px; left:50%; transform:translateX(-50%); background:var(--panel2); border:2px solid var(--border);
+  padding:6px 14px; border-radius:16px; font-size:17px; color:var(--amber); max-width:88%; text-align:center; display:none;}
+.qCard{background:var(--panel); border:2px solid var(--border); border-radius:10px; padding:18px;}
+.qMeta{display:flex; justify-content:space-between; color:var(--dim); font-size:16px; margin-bottom:10px;}
+.timerBar{height:8px; background:#0a0f1e; border-radius:4px; overflow:hidden; margin-bottom:12px;}
+.timerFill{height:100%; background:var(--cyan); width:100%; border-radius:4px;}
+.qText{font-size:22px; line-height:1.35; margin-bottom:14px; color:#eaf2ff;}
+.opts{display:grid; gap:10px;}
+.opt{background:var(--panel2); border:2px solid var(--border); border-radius:6px; padding:12px 14px; cursor:pointer;
+  font-family:'VT323',monospace; font-size:20px; color:var(--text); text-align:left; transition:border-color .12s, background .12s; line-height:1.25;}
+.opt:hover:not(:disabled){border-color:var(--cyan); background:#182242;}
+.opt .key{color:var(--dim); margin-right:8px; font-size:17px;}
+.opt.correct{border-color:var(--neon); background:#0e2b1e; color:var(--neon);}
+.opt.wrong{border-color:var(--red); background:#2b0e15; color:var(--red);}
+.opt:disabled{cursor:default;}
+.lore{border-radius:8px; padding:14px 16px; margin-top:12px; font-size:19px; line-height:1.35; display:none;}
+.lore.good{background:#0e2b1e; border:2px solid #1a8f5c;}
+.lore.bad{background:#2b0e15; border:2px solid #8f1a2e;}
+.lore .loreTag{font-family:'Press Start 2P',monospace; font-size:10px; display:block; margin-bottom:8px;}
+.lore.good .loreTag{color:var(--neon);}
+.lore.bad .loreTag{color:var(--red);}
+.contRow{display:flex; justify-content:flex-end; margin-top:12px;}
+.floatDmg{position:absolute; font-family:'Press Start 2P',monospace; font-size:16px; pointer-events:none;
+  animation:floatUp 1s forwards; z-index:5;}
+@keyframes floatUp{0%{opacity:1; transform:translateY(0);}100%{opacity:0; transform:translateY(-46px);}}
+/* ---------- RESULTS ---------- */
+#resultScreen{align-items:center; justify-content:center; text-align:center; gap:16px;}
+.gradeBig{font-family:'Press Start 2P',monospace; font-size:64px; text-shadow:0 0 24px currentColor;}
+.resultBox{background:var(--panel); border:2px solid var(--border); border-radius:10px; padding:22px 34px; font-size:21px; line-height:1.6;}
+.resultBox b{color:var(--amber);}
+/* ---------- CODEX ---------- */
+.codexNav{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+.codexSection{background:var(--panel); border:2px solid var(--border); border-radius:8px; padding:16px 18px; margin-bottom:12px;}
+.codexSection h3{color:var(--cyan); font-family:'Press Start 2P',monospace; font-size:11px; margin-bottom:10px; line-height:1.6;}
+.codexSection li{margin:0 0 7px 18px; line-height:1.3; color:var(--text);}
+.codexSection li b{color:var(--amber);}
+.topBar{display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
+.tag{font-size:15px; color:var(--bg); background:var(--purple); border-radius:4px; padding:2px 8px; font-family:'Press Start 2P',monospace; font-size:9px;}
+footer{color:#3a466b; text-align:center; font-size:15px; padding:14px 0 4px;}
+.siteNav{display:flex; gap:16px; flex-wrap:wrap; justify-content:center;}
+.siteNav a{font-family:'Press Start 2P',monospace; font-size:9px; color:#5c6c92; text-decoration:none;
+  border-bottom:1px solid transparent; padding-bottom:3px; transition:color .15s, border-color .15s;}
+.siteNav a:hover{color:var(--cyan); border-color:var(--cyan);}
+@media (max-width:640px){
+  .sprite{font-size:44px;} .fighter{width:47%;} .qText{font-size:20px;}
+  .logo{font-size:20px;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- TOPIC (fallback if no ?topic in URL) -->
+  <div class="screen" id="topicScreen" style="align-items:center; justify-content:center; text-align:center; gap:20px; padding:40px 10px;">
+    <div class="logo">EDUCATION<br><span>4ALL</span></div>
+    <div class="subtitle">Type anything you want to learn. We build a boss-battle quiz that teaches it.</div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; width:100%; max-width:560px;">
+      <input id="topicInput" type="text" maxlength="120" autocomplete="off"
+        placeholder="e.g. rocket science, WW1, black holes…"
+        style="flex:1; min-width:220px; background:var(--panel2); border:2px solid var(--border); border-radius:8px; color:var(--text); font-family:'VT323',monospace; font-size:24px; padding:12px 14px; outline:none;">
+      <button class="btn" onclick="G.startFromInput()">▶ GENERATE</button>
+    </div>
+    <div class="siteNav"><a href="../">◀ HOME</a></div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="screen active" id="loadingScreen" style="align-items:center; justify-content:center; text-align:center; gap:22px; padding:40px 10px;">
+    <div class="rackArt">
+      <div class="rack"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="rack"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="rack"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="rack"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="logo pixel" style="font-size:16px;">BUILDING YOUR GAME</div>
+    <div class="subtitle" id="loadTopic" style="color:var(--cyan);">…</div>
+    <div class="hint blink pixel" style="font-size:10px;" id="loadStatus">WRITING QUESTIONS · THIS TAKES ~15 SECONDS</div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="screen" id="errorScreen" style="align-items:center; justify-content:center; text-align:center; gap:20px; padding:40px 10px;">
+    <div class="logo pixel" style="font-size:18px; color:var(--red);">⚠ GENERATION FAILED</div>
+    <div class="subtitle" id="errorText" style="color:var(--dim);"></div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+      <button class="btn" onclick="G.retryGen()">↻ TRY AGAIN</button>
+      <button class="btn ghost small" onclick="location.href='../'">◀ NEW TOPIC</button>
+    </div>
+  </div>
+
+  <!-- TITLE -->
+  <div class="screen" id="titleScreen">
+    <div class="rackArt">
+      <div class="rack"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="rack"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="rack"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="rack"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="logo" id="titleLogo">TOPIC</div>
+    <div class="subtitle" id="titleSub">Battle your way through the fundamentals, then face the boss.</div>
+    <button class="btn" onclick="G.showLevels()">▶ START CAMPAIGN</button>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+      <button class="btn cyan small" onclick="G.showCodex()">📖 CHEAT SHEET</button>
+      <button class="btn ghost small" id="rouletteBtn" onclick="G.startRoulette()">🎰 RANDOM MIX</button>
+      <button class="btn ghost small" id="soundBtn" onclick="G.toggleSound()">🔊 SOUND ON</button>
+      <button class="btn ghost small" id="fsBtn" onclick="G.toggleFullscreen()">⛶ FULLSCREEN</button>
+    </div>
+    <div class="siteNav">
+      <a href="../">◀ NEW TOPIC</a>
+      <a href="#" id="switchFps">🎯 SAME TOPIC AS FPS</a>
+    </div>
+    <div class="hint blink pixel" style="font-size:10px;">POWERED BY AI · LEARN ANYTHING</div>
+  </div>
+
+  <!-- LEVEL SELECT -->
+  <div class="screen" id="levelScreen">
+    <div class="screenHead">
+      <div>
+        <h2 class="pixel" style="color:var(--neon); font-size:16px;">SELECT BATTLE</h2>
+        <div class="hint">Beat a level to unlock the next. 3 lives per battle. Streaks multiply your score.</div>
+      </div>
+      <div>
+        <button class="btn ghost small" onclick="G.show('titleScreen')">◀ TITLE</button>
+        <button class="btn cyan small" onclick="G.showCodex()">📖 CODEX</button>
+      </div>
+    </div>
+    <div class="levels" id="levelGrid"></div>
+  </div>
+
+  <!-- BATTLE -->
+  <div class="screen" id="battleScreen">
+    <div class="hud">
+      <div class="hudBox">SCORE <b id="hudScore">0</b></div>
+      <div class="hudBox combo" id="hudCombo">COMBO x0</div>
+      <div class="hudBox hearts" id="hudHearts">❤️❤️❤️</div>
+      <div><button class="btn ghost small" onclick="G.quitBattle()">✖ RETREAT</button></div>
+    </div>
+    <div class="arena" id="arena">
+      <div class="speech" id="speech"></div>
+      <div class="fighter">
+        <span class="sprite" id="playerSprite">🧑‍💻</span>
+        <div class="fName">HACKETT<br><span style="color:var(--dim); font-size:9px;">FOUNDER-IN-TRAINING</span></div>
+        <div class="hpBar"><div class="hpFill player" id="playerHp"></div></div>
+      </div>
+      <div class="vs">VS</div>
+      <div class="fighter">
+        <span class="sprite" id="enemySprite">🤖</span>
+        <div class="fName" id="enemyName">???</div>
+        <div class="hpBar"><div class="hpFill" id="enemyHp"></div></div>
+      </div>
+    </div>
+    <div class="qCard">
+      <div class="qMeta"><span id="qCount">Q 1/10</span><span id="qTopic"></span></div>
+      <div class="timerBar"><div class="timerFill" id="timerFill"></div></div>
+      <div class="qText" id="qText"></div>
+      <div class="opts" id="opts"></div>
+      <div class="lore" id="lore"><span class="loreTag" id="loreTag"></span><span id="loreText"></span></div>
+      <div class="contRow"><button class="btn small" id="contBtn" style="display:none;" onclick="G.next()">CONTINUE ▶</button></div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="screen" id="resultScreen">
+    <div class="gradeBig" id="gradeBig">A</div>
+    <div class="pixel" id="resultTitle" style="font-size:16px; color:var(--neon);">VICTORY</div>
+    <div class="resultBox" id="resultStats"></div>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+      <button class="btn small" id="retryBtn" onclick="G.retry()">↻ RETRY</button>
+      <button class="btn cyan small" onclick="G.showLevels()">MAP ▶</button>
+    </div>
+  </div>
+
+  <!-- CODEX -->
+  <div class="screen" id="codexScreen">
+    <div class="screenHead">
+      <div>
+        <h2 class="pixel" style="color:var(--cyan); font-size:16px;">THE CODEX</h2>
+        <div class="hint">Every key takeaway, in one place. Your revision cheat-sheet.</div>
+      </div>
+      <div><button class="btn ghost small" onclick="G.show('levelScreen')">◀ BACK</button></div>
+    </div>
+    <div id="codexBody"></div>
+  </div>
+
+  <footer>EDUCATION4ALL · learn anything · one game at a time</footer>
+</div>
+
+<script src="../assets/topic-loader.js"></script>
+<script>
+/* =============== DYNAMIC DATA ===============
+   Levels + codex are generated per-topic by the serverless function and
+   loaded at runtime. Question format is unchanged: correct answer is c[0]. */
+let LEVELS = [];
+let CODEX  = [];
+let TOPIC  = '';
+
+/* =============== GAME ENGINE =============== */
+const G = (() => {
+  const S = {
+    unlocked: 1, stars: {}, sound: true,
+    lvl: null, qOrder: [], qi: 0, hearts: 3, score: 0, combo: 0, best: 0,
+    correct: 0, startT: 0, timer: null, timeLeft: 0, answered: false, roulette: false,
+    totalScore: 0
+  };
+  const QTIME = 40; // seconds per question
+
+  /* ---- persistence (per-topic, safe if storage unavailable) ---- */
+  function saveKey(){ return 'edu4all_quiz_' + (window.Edu4All ? Edu4All.slug(TOPIC) : 'topic'); }
+  function save(){ try{ localStorage.setItem(saveKey(), JSON.stringify({unlocked:S.unlocked, stars:S.stars, totalScore:S.totalScore})); }catch(e){} }
+  function load(){ try{ const d = JSON.parse(localStorage.getItem(saveKey())); if(d){ S.unlocked=d.unlocked||1; S.stars=d.stars||{}; S.totalScore=d.totalScore||0; } }catch(e){} }
+
+  /* ---- audio ---- */
+  let AC = null;
+  function beep(freq, dur=0.08, type='square', vol=0.04){
+    if(!S.sound) return;
+    try{
+      AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.value = vol; g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + dur);
+      o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime + dur);
+    }catch(e){}
+  }
+  const sfx = {
+    good(){ beep(660,.07); setTimeout(()=>beep(880,.09),70); },
+    great(){ beep(660,.06); setTimeout(()=>beep(880,.06),60); setTimeout(()=>beep(1320,.12),120); },
+    bad(){ beep(180,.18,'sawtooth',.05); },
+    click(){ beep(440,.04,'square',.02); },
+    win(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.14,'square',.05), i*130)); },
+    lose(){ [400,340,280,200].forEach((f,i)=>setTimeout(()=>beep(f,.16,'sawtooth',.05), i*150)); }
+  };
+
+  /* ---- helpers ---- */
+  const $ = id => document.getElementById(id);
+  const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+
+  function show(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    $(id).classList.add('active');
+    window.scrollTo(0,0);
+  }
+
+  /* ---- level select ---- */
+  function showLevels(){
+    sfx.click();
+    const grid = $('levelGrid'); grid.innerHTML='';
+    LEVELS.forEach((L,i)=>{
+      const locked = i >= S.unlocked;
+      const div = document.createElement('div');
+      div.className = 'lvlCard' + (locked?' locked':'') + (L.boss?' boss':'');
+      const stars = S.stars[i] ? '★'.repeat(S.stars[i]) + '☆'.repeat(3-S.stars[i]) : '';
+      div.innerHTML = `<div class="lvlNum">${L.boss?'FINAL BOSS':'LEVEL '+(i+1)}</div>
+        <span class="lvlEmoji">${L.emoji}</span>
+        <div class="lvlName">${L.name}</div>
+        <div class="lvlDesc">${L.desc}</div>
+        <div class="stars">${stars}</div>
+        ${locked?'<div class="lockTag">🔒 beat previous level</div>':''}`;
+      if(!locked) div.onclick = ()=>startLevel(i);
+      grid.appendChild(div);
+    });
+    show('levelScreen');
+  }
+
+  /* ---- battle ---- */
+  function startLevel(i){
+    S.roulette = false;
+    S.lvl = i;
+    S.qOrder = shuffle(LEVELS[i].questions.map((_,k)=>k));
+    beginBattle(LEVELS[i]);
+  }
+
+  function startRoulette(){
+    if(S.unlocked < 2){ alert('Beat at least Level 1 to unlock the Random Mix!'); return; }
+    S.roulette = true; S.lvl = -1;
+    // pool from all unlocked levels
+    const pool = [];
+    LEVELS.slice(0, S.unlocked).forEach((L,li)=> L.questions.forEach((q,qi)=> pool.push({li,qi})));
+    S.qOrder = shuffle(pool).slice(0, 15);
+    beginBattle({enemy:{name:"CHAOS ARCHIVE", emoji:"🎰", intro:"Fifteen questions. Every topic you've unlocked. No pattern. Good luck.",
+      taunts:["Remember everything you just learned?","Random access memory, indeed.","Shuffling…","That one was on the cheat sheet!"]}});
+  }
+
+  function beginBattle(L){
+    S.qi = 0; S.hearts = 3; S.score = 0; S.combo = 0; S.best = 0; S.correct = 0; S.startT = Date.now();
+    $('enemySprite').textContent = L.enemy.emoji;
+    $('enemyName').innerHTML = L.enemy.name;
+    $('enemyHp').style.width = '100%';
+    $('playerHp').style.width = '100%';
+    updateHud();
+    show('battleScreen');
+    say(L.enemy.intro, 3200);
+    renderQ();
+  }
+
+  function currentQ(){
+    if(S.roulette){ const {li,qi} = S.qOrder[S.qi]; return LEVELS[li].questions[qi]; }
+    return LEVELS[S.lvl].questions[S.qOrder[S.qi]];
+  }
+  function currentEnemy(){
+    if(S.roulette) return {taunts:["Remember everything you just learned?","Shuffling…","That one was on the cheat sheet!","Random access memory, indeed."]};
+    return LEVELS[S.lvl].enemy;
+  }
+  function qTotal(){ return S.qOrder.length; }
+
+  function renderQ(){
+    S.answered = false;
+    const q = currentQ();
+    $('qCount').textContent = `Q ${S.qi+1}/${qTotal()}`;
+    $('qTopic').textContent = S.roulette ? LEVELS[S.qOrder[S.qi].li].name : LEVELS[S.lvl].name;
+    $('qText').textContent = q.q;
+    $('lore').style.display='none';
+    $('contBtn').style.display='none';
+    const opts = $('opts'); opts.innerHTML='';
+    const order = shuffle(q.c.map((_,i)=>i));
+    order.forEach((oi, pos)=>{
+      const b = document.createElement('button');
+      b.className='opt';
+      b.innerHTML = `<span class="key">[${pos+1}]</span>${q.c[oi]}`;
+      b.dataset.orig = oi;
+      b.onclick = ()=>answer(b, oi===0);
+      opts.appendChild(b);
+    });
+    startTimer();
+  }
+
+  function startTimer(){
+    clearInterval(S.timer);
+    S.timeLeft = QTIME;
+    $('timerFill').style.width='100%';
+    $('timerFill').style.background='var(--cyan)';
+    S.timer = setInterval(()=>{
+      S.timeLeft -= 0.1;
+      const pct = Math.max(0, S.timeLeft/QTIME*100);
+      $('timerFill').style.width = pct+'%';
+      if(pct < 25) $('timerFill').style.background='var(--red)';
+      else if(pct < 50) $('timerFill').style.background='var(--amber)';
+      if(S.timeLeft <= 0){ clearInterval(S.timer); timeout(); }
+    }, 100);
+  }
+
+  function timeout(){
+    if(S.answered) return;
+    S.answered = true;
+    document.querySelectorAll('.opt').forEach(b=>{ b.disabled=true; if(b.dataset.orig==='0') b.classList.add('correct'); });
+    wrongFlow("⏰ TIME'S UP!");
+  }
+
+  function answer(btn, right){
+    if(S.answered) return;
+    S.answered = true;
+    clearInterval(S.timer);
+    document.querySelectorAll('.opt').forEach(b=>{
+      b.disabled = true;
+      if(b.dataset.orig === '0') b.classList.add('correct');
+    });
+    if(right){
+      S.correct++;
+      S.combo++;
+      S.best = Math.max(S.best, S.combo);
+      const timeBonus = Math.round(Math.max(0, S.timeLeft/QTIME) * 50);
+      const gained = 100 + (S.combo-1)*25 + timeBonus;
+      S.score += gained;
+      S.combo >= 3 ? sfx.great() : sfx.good();
+      // enemy takes damage
+      const dmg = 100/qTotal();
+      const hpNow = Math.max(0, 100 - (S.correct)*dmg);
+      $('enemyHp').style.width = hpNow+'%';
+      hitAnim('enemySprite');
+      float(`-${Math.round(dmg)}%`, 'var(--neon)', 72);
+      float(`+${gained}`, 'var(--amber)', 30);
+      showLore(true, currentQ().why);
+    } else {
+      btn.classList.add('wrong');
+      wrongFlow(null);
+    }
+    updateHud();
+    $('contBtn').style.display='inline-block';
+    $('contBtn').focus();
+  }
+
+  function wrongFlow(msgOverride){
+    S.combo = 0;
+    S.hearts--;
+    sfx.bad();
+    $('arena').classList.remove('shake'); void $('arena').offsetWidth; $('arena').classList.add('shake');
+    hitAnim('playerSprite');
+    attackAnim('enemySprite');
+    $('playerHp').style.width = (S.hearts/3*100)+'%';
+    const e = currentEnemy();
+    say(msgOverride || e.taunts[Math.floor(Math.random()*e.taunts.length)], 2600);
+    showLore(false, currentQ().why);
+    updateHud();
+    $('contBtn').style.display='inline-block';
+  }
+
+  function showLore(good, text){
+    const l = $('lore');
+    l.className = 'lore ' + (good?'good':'bad');
+    $('loreTag').textContent = good ? '✔ CORRECT' : '✘ WRONG — STUDY THIS';
+    $('loreText').textContent = text;
+    l.style.display='block';
+  }
+
+  function next(){
+    if(!S.answered) return; // guard against double-advance (Enter + click)
+    S.answered = false;
+    sfx.click();
+    if(S.hearts <= 0){ endBattle(false); return; }
+    S.qi++;
+    if(S.qi >= qTotal()){ endBattle(true); return; }
+    renderQ();
+  }
+
+  function endBattle(won){
+    clearInterval(S.timer);
+    const total = qTotal();
+    const acc = Math.round(S.correct/total*100);
+    let grade, color;
+    if(!won){ grade='F'; color='var(--red)'; }
+    else if(acc === 100){ grade='S'; color='var(--purple)'; }
+    else if(acc >= 90){ grade='A'; color='var(--neon)'; }
+    else if(acc >= 75){ grade='B'; color='var(--cyan)'; }
+    else { grade='C'; color='var(--amber)'; }
+    $('gradeBig').textContent = grade;
+    $('gradeBig').style.color = color;
+    $('resultTitle').textContent = won ? (S.roulette ? 'ROULETTE SURVIVED' : (LEVELS[S.lvl]?.boss ? '🏆 MASTERED' : 'VICTORY')) : 'DEFEATED';
+    $('resultTitle').style.color = won ? 'var(--neon)' : 'var(--red)';
+    const secs = Math.round((Date.now()-S.startT)/1000);
+    $('resultStats').innerHTML =
+      `Correct: <b>${S.correct}/${total}</b> (${acc}%)<br>` +
+      `Score: <b>${S.score}</b> &nbsp;·&nbsp; Best combo: <b>x${S.best}</b><br>` +
+      `Time: <b>${Math.floor(secs/60)}m ${secs%60}s</b>` +
+      (won && !S.roulette && LEVELS[S.lvl]?.boss ? `<br><br><span style="color:var(--purple)">You've mastered ${TOPIC}. Take a victory lap.</span>` : '') +
+      (!won ? `<br><br><span style="color:var(--dim)">Check the cheat sheet, then try again. The facts don't change — you do.</span>` : '');
+    if(won){
+      sfx.win();
+      S.totalScore += S.score;
+      if(!S.roulette){
+        const stars = acc===100?3 : acc>=80?2 : 1;
+        S.stars[S.lvl] = Math.max(S.stars[S.lvl]||0, stars);
+        if(S.lvl+1 >= S.unlocked) S.unlocked = Math.min(LEVELS.length, S.lvl+2);
+      }
+      save();
+    } else { sfx.lose(); }
+    show('resultScreen');
+  }
+
+  function retry(){
+    if(S.roulette){ startRoulette(); } else { startLevel(S.lvl); }
+  }
+  function quitBattle(){ clearInterval(S.timer); showLevels(); }
+
+  /* ---- visuals ---- */
+  function hitAnim(id){ const el=$(id); el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+  function attackAnim(id){ const el=$(id); el.classList.remove('attack'); void el.offsetWidth; el.classList.add('attack'); }
+  function say(text, ms){
+    const s = $('speech'); s.textContent = text; s.style.display='block';
+    clearTimeout(s._t); s._t = setTimeout(()=>{ s.style.display='none'; }, ms);
+  }
+  function float(text, color, pct){
+    const a = $('arena'); const f = document.createElement('div');
+    f.className='floatDmg'; f.textContent=text; f.style.color=color;
+    f.style.left = pct+'%'; f.style.top = '30%';
+    a.appendChild(f); setTimeout(()=>f.remove(), 1000);
+  }
+  function updateHud(){
+    $('hudScore').textContent = S.score;
+    $('hudCombo').textContent = 'COMBO x' + S.combo;
+    $('hudCombo').style.color = S.combo>=3 ? 'var(--purple)' : 'var(--dim)';
+    $('hudHearts').textContent = '❤️'.repeat(S.hearts) + '🖤'.repeat(3-S.hearts);
+  }
+
+  /* ---- codex ---- */
+  function showCodex(){
+    sfx.click();
+    const body = $('codexBody');
+    if(!body.dataset.built){
+      body.innerHTML = CODEX.map(s=>`<div class="codexSection"><h3>${s.h}</h3><ul>${s.items.map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('');
+      body.dataset.built = '1';
+    }
+    show('codexScreen');
+  }
+
+  function toggleFullscreen(){
+    sfx.click();
+    try{
+      if(!document.fullscreenElement){
+        document.documentElement.requestFullscreen();
+        $('fsBtn').textContent = '⛶ EXIT FULLSCREEN';
+      } else {
+        document.exitFullscreen();
+        $('fsBtn').textContent = '⛶ FULLSCREEN';
+      }
+    }catch(e){}
+  }
+
+  function toggleSound(){
+    S.sound = !S.sound;
+    $('soundBtn').textContent = S.sound ? '🔊 SOUND ON' : '🔇 SOUND OFF';
+    if(S.sound) sfx.click();
+  }
+
+  /* ---- keyboard ---- */
+  document.addEventListener('keydown', e=>{
+    if(!$('battleScreen').classList.contains('active')) return;
+    if(e.key >= '1' && e.key <= '4' && !S.answered){
+      const opts = document.querySelectorAll('.opt');
+      const idx = parseInt(e.key)-1;
+      if(opts[idx]) opts[idx].click();
+    }
+    if((e.key === 'Enter' || e.key === ' ') && S.answered){
+      e.preventDefault(); next();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', ()=>{
+    const b = $('fsBtn'); if(b) b.textContent = document.fullscreenElement ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN';
+  });
+
+  /* ---- topic loading / boot ---- */
+  function applyContent(data){
+    TOPIC = data.topic || TOPIC;
+    LEVELS = data.levels || [];
+    CODEX  = data.codex  || [];
+    S.unlocked = 1; S.stars = {}; S.totalScore = 0;
+    load(); // restore any saved progress for THIS topic
+    const t = TOPIC.toUpperCase();
+    $('titleLogo').textContent = t;
+    $('titleSub').textContent = LEVELS.length + ' levels · ' +
+      LEVELS.reduce((n,L)=>n+L.questions.length,0) + ' questions · learn ' + TOPIC + ' by battling.';
+    document.title = TOPIC + ' — Battle Quiz · Education4All';
+    const sf = $('switchFps'); if(sf) sf.href = '../fps/?topic=' + encodeURIComponent(TOPIC);
+    const cb = $('codexBody'); if(cb) cb.dataset.built = '';
+  }
+
+  async function generate(topic){
+    TOPIC = topic;
+    $('loadTopic').textContent = '“' + topic + '”';
+    show('loadingScreen');
+    try{
+      const data = await Edu4All.fetchTopic(topic);
+      applyContent(data);
+      show('titleScreen');
+    }catch(err){
+      $('errorText').textContent = err.message || 'Please try again.';
+      show('errorScreen');
+    }
+  }
+
+  function retryGen(){ if(TOPIC) generate(TOPIC); else show('topicScreen'); }
+  function startFromInput(){
+    const v = ($('topicInput').value||'').trim();
+    if(!v){ $('topicInput').focus(); return; }
+    history.replaceState(null,'', '?topic=' + encodeURIComponent(v));
+    generate(v);
+  }
+
+  function boot(){
+    const topic = Edu4All.getTopicFromURL();
+    if(topic){ generate(topic); }
+    else { show('topicScreen'); const i=$('topicInput'); if(i){ i.focus();
+      i.addEventListener('keydown', e=>{ if(e.key==='Enter') startFromInput(); }); } }
+  }
+  boot();
+
+  return { show, showLevels, showCodex, startRoulette, startLevel, next, retry, quitBattle,
+           toggleSound, toggleFullscreen, generate, retryGen, startFromInput };
+})();
+</script>
+</body>
+</html>

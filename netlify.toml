@@ -1,0 +1,16 @@
+# Education4All — Netlify configuration
+# Static site at the repo root + one serverless function that generates
+# the questions. No build step: the games are plain HTML/CSS/JS.
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Friendly alias: /api/generate -> the function
+[[redirects]]
+  from = "/api/generate"
+  to = "/.netlify/functions/generate"
+  status = 200

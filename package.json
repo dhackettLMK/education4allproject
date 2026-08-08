@@ -1,0 +1,12 @@
+{
+  "name": "education4all",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Type any topic and learn it in ~20 minutes over a retro arcade game. Questions are generated on demand by an AI.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "netlify dev"
+  }
+}
