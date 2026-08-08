@@ -40,11 +40,13 @@ Netlify environment variable. A public key would get scraped and drained.
 
 ## Setup — get it live (about 5 minutes)
 
-### 1. Get a free AI key (Google Gemini)
+The question generator uses **[TensorX](https://tensorx.ai)** — an
+OpenAI-compatible AI API.
 
-1. Go to **https://aistudio.google.com/apikey**
-2. Sign in with a Google account and click **Create API key**.
-3. Copy the key. Gemini has a genuinely free tier — no credit card needed to start.
+### 1. Get your API key
+
+1. Go to **https://app.tensorx.ai/dashboard/keys**
+2. Create an API key and copy it.
 
 ### 2. Add the key to Netlify
 
@@ -52,7 +54,7 @@ Netlify environment variable. A public key would get scraped and drained.
    No build command is needed; the site is static and `netlify.toml` already
    points Netlify at the `netlify/functions` folder.
 2. In Netlify: **Site settings → Environment variables → Add a variable**
-   - Key: `GEMINI_API_KEY`
+   - Key: `TENSORX_API_KEY`
    - Value: *your key from step 1*
 3. **Redeploy** the site (Deploys → Trigger deploy) so the function picks up the key.
 
@@ -60,17 +62,19 @@ That's it. Open the site, type a topic, and play.
 
 ### Optional environment variables
 
-| Variable         | Default            | What it does                                    |
-| ---------------- | ------------------ | ----------------------------------------------- |
-| `GEMINI_API_KEY` | *(required)*       | Your free Google AI Studio key.                 |
-| `GEMINI_MODEL`   | `gemini-2.5-flash` | Which Gemini model to use.                       |
+| Variable           | Default                        | What it does                                          |
+| ------------------ | ------------------------------ | ----------------------------------------------------- |
+| `TENSORX_API_KEY`  | *(required)*                   | Your TensorX API key.                                 |
+| `TENSORX_MODEL`    | `deepseek/deepseek-chat-v3.1`  | Which model to use (e.g. `qwen/qwen3-235b-a22b-2507`, `z-ai/glm-5.1`). |
+| `TENSORX_BASE_URL` | `https://api.tensorx.ai/v1`    | API base URL.                                         |
 
-### Want to use Claude or OpenAI instead later?
+### Using a different provider later
 
-The generator is isolated in one file (`netlify/functions/generate.js`). Swapping
-providers means changing the `callGemini` function to call that provider's API and
-setting a different key — the rest of the site (both games, the data shape) stays
-exactly the same.
+TensorX is OpenAI-compatible, so the generator (`netlify/functions/generate.js`)
+works with **any** OpenAI-compatible API. To switch to OpenAI, OpenRouter, a local
+model, etc., just point the three env vars above at that provider (base URL, model
+name, key) — no code changes needed. The rest of the site (both games, the data
+shape) stays exactly the same.
 
 ## Run it locally
 
@@ -78,7 +82,7 @@ Local dev needs the function to run, so use the Netlify CLI:
 
 ```bash
 npm install -g netlify-cli
-export GEMINI_API_KEY=your_key_here   # or put it in a .env file
+export TENSORX_API_KEY=your_key_here   # or put it in a .env file
 netlify dev
 ```
 

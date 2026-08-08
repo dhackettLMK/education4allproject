@@ -9,68 +9,19 @@
 
    The correct answer is ALWAYS c[0]; both games shuffle options at runtime.
 
+   Engine: TensorX (https://tensorx.ai) — an OpenAI-compatible API.
    The API key lives ONLY here on the server, never in the browser.
-   Default engine is Google Gemini (generous free tier). You can point it at
-   another provider later by changing env vars — see README.
+   To swap providers, change BASE_URL / MODEL / the API key env var below;
+   any OpenAI-compatible endpoint works with no other changes.
    ========================================================================= */
 
 // ---- knobs (safe to tweak) ------------------------------------------------
-const LEVEL_COUNT = 5;          // number of levels, last one is the boss
-const Q_PER_LEVEL = 6;          // questions per level  (5 x 6 = 30 ≈ 20 min)
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const LEVEL_COUNT = 5;   // number of levels, last one is the boss
+const Q_PER_LEVEL = 6;   // questions per level  (5 x 6 = 30 ≈ 20 min)
 
-// ---- response schema Gemini must fill -------------------------------------
-const RESPONSE_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    levels: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          name:  { type: 'STRING' },
-          emoji: { type: 'STRING' },
-          desc:  { type: 'STRING' },
-          enemy: {
-            type: 'OBJECT',
-            properties: {
-              name:   { type: 'STRING' },
-              emoji:  { type: 'STRING' },
-              intro:  { type: 'STRING' },
-              taunts: { type: 'ARRAY', items: { type: 'STRING' } }
-            },
-            required: ['name', 'emoji', 'intro', 'taunts']
-          },
-          questions: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: {
-                question:    { type: 'STRING' },
-                options:     { type: 'ARRAY', items: { type: 'STRING' } },
-                explanation: { type: 'STRING' }
-              },
-              required: ['question', 'options', 'explanation']
-            }
-          }
-        },
-        required: ['name', 'emoji', 'desc', 'enemy', 'questions']
-      }
-    },
-    codex: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          heading: { type: 'STRING' },
-          items:   { type: 'ARRAY', items: { type: 'STRING' } }
-        },
-        required: ['heading', 'items']
-      }
-    }
-  },
-  required: ['levels', 'codex']
-};
+const BASE_URL = process.env.TENSORX_BASE_URL || 'https://api.tensorx.ai/v1';
+const MODEL    = process.env.TENSORX_MODEL    || 'deepseek/deepseek-chat-v3.1';
+const API_KEY  = process.env.TENSORX_API_KEY;
 
 // ---- the prompt -----------------------------------------------------------
 function buildPrompt(topic) {
@@ -80,74 +31,99 @@ background can genuinely understand it in about 20 minutes of play:
 
 TOPIC: "${topic}"
 
-Return EXACTLY ${LEVEL_COUNT} levels. The levels must form a learning journey
-that ramps in difficulty:
-- Level 1 is an approachable "boot camp" covering the absolute fundamentals.
-- Middle levels build up the key facts, mechanisms, numbers and debates.
-- The FINAL level is a "boss" — the hardest, most synthesising questions that
-  make the player connect everything they learned.
+Respond with ONLY a single valid JSON object (no markdown, no code fences, no
+commentary) with exactly this structure:
 
-For EACH level provide:
-- name: a short punchy ALL-CAPS level name themed to the topic (2-4 words).
-- emoji: one emoji that fits the level.
-- desc: one short sentence describing what this level teaches.
-- enemy: a memorable villain the player battles, themed to the topic, with:
-    - name (ALL CAPS), emoji, an intro line spoken before the fight, and
-    - taunts: an array of exactly 4 short taunts.
-- questions: exactly ${Q_PER_LEVEL} multiple-choice questions. For each:
-    - question: a clear, standalone question a beginner can follow.
-    - options: an array of EXACTLY 4 answer strings. The FIRST option
-      (index 0) MUST be the correct answer. The other 3 must be plausible but
-      wrong. Do NOT prefix options with letters or numbers.
-    - explanation: 1-2 sentences that teach WHY the correct answer is right,
-      so the player learns something even when they get it wrong. Keep it
-      under 240 characters.
-
-Also return codex: 4 to 7 sections summarising the most important takeaways
-(a revision cheat-sheet). Each section has a heading (with a leading emoji)
-and an array of 3-6 concise bullet strings. You may wrap key terms/numbers in
-<b>...</b> tags for emphasis.
-
-Rules:
-- Be factually accurate. If a fact is genuinely uncertain or contested, phrase
-  the question around what is well established.
-- Keep language plain and concrete. Avoid jargon; when a technical term is
-  unavoidable, explain it in the option or explanation.
-- Make it engaging and a little witty, but never at the cost of accuracy.
-- Every question must have exactly 4 options with the correct one first.`;
+{
+  "levels": [
+    {
+      "name": "SHORT ALL-CAPS LEVEL NAME",
+      "emoji": "one emoji",
+      "desc": "one short sentence describing what this level teaches",
+      "enemy": {
+        "name": "ALL CAPS VILLAIN NAME",
+        "emoji": "one emoji",
+        "intro": "a line the villain says before the fight",
+        "taunts": ["taunt 1", "taunt 2", "taunt 3", "taunt 4"]
+      },
+      "questions": [
+        {
+          "question": "a clear, standalone multiple-choice question",
+          "options": ["CORRECT answer", "wrong 1", "wrong 2", "wrong 3"],
+          "explanation": "1-2 sentences on why the correct answer is right (<240 chars)"
+        }
+      ]
+    }
+  ],
+  "codex": [
+    { "heading": "emoji + SHORT HEADING", "items": ["bullet 1", "bullet 2", "bullet 3"] }
+  ]
 }
 
-// ---- Gemini call ----------------------------------------------------------
-async function callGemini(topic, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const body = {
-    contents: [{ role: 'user', parts: [{ text: buildPrompt(topic) }] }],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: RESPONSE_SCHEMA,
-      temperature: 0.8,
-      maxOutputTokens: 32768
-    }
-  };
+Requirements:
+- Return EXACTLY ${LEVEL_COUNT} levels forming a difficulty ramp: level 1 is an
+  approachable "boot camp" on the fundamentals; middle levels build the key
+  facts, mechanisms, numbers and debates; the FINAL level is the hardest
+  "boss" that makes the player connect everything.
+- Each level has EXACTLY ${Q_PER_LEVEL} questions.
+- Each question has EXACTLY 4 options. The FIRST option (index 0) MUST be the
+  correct answer; the other 3 are plausible but wrong. Do NOT prefix options
+  with letters or numbers.
+- Each enemy has EXACTLY 4 taunts.
+- codex: 4 to 7 sections summarising the most important takeaways (a revision
+  cheat-sheet). Each section has 3-6 concise bullet strings. You may wrap key
+  terms or numbers in <b>...</b> tags for emphasis.
+- Be factually accurate. If a fact is genuinely contested, phrase the question
+  around what is well established.
+- Keep language plain and concrete; explain unavoidable jargon in the option
+  or explanation. Be engaging and a little witty, never at the cost of accuracy.
+- Output raw JSON only.`;
+}
 
-  const res = await fetch(url, {
+// ---- provider call (OpenAI-compatible) ------------------------------------
+async function callModel(topic) {
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${API_KEY}`
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      temperature: 0.8,
+      max_tokens: 16000,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: 'You are a precise assistant that always replies with a single valid JSON object and nothing else.' },
+        { role: 'user', content: buildPrompt(topic) }
+      ]
+    })
   });
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`Gemini API ${res.status}: ${detail.slice(0, 400)}`);
+    throw new Error(`AI API ${res.status}: ${detail.slice(0, 400)}`);
   }
 
   const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
-  if (!text) {
-    const reason = data?.candidates?.[0]?.finishReason || 'no content';
-    throw new Error(`Model returned nothing (${reason}). Try a simpler topic.`);
+  const text = data?.choices?.[0]?.message?.content || '';
+  if (!text) throw new Error('The model returned nothing. Try a simpler topic.');
+  return parseJson(text);
+}
+
+// Robustly pull a JSON object out of the model's reply.
+function parseJson(text) {
+  let t = String(text).trim();
+  // strip ```json ... ``` fences if present
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  try { return JSON.parse(t); } catch (e) {}
+  // fall back to the first { ... last } span
+  const s = t.indexOf('{'), e = t.lastIndexOf('}');
+  if (s !== -1 && e > s) {
+    return JSON.parse(t.slice(s, e + 1));
   }
-  return JSON.parse(text);
+  throw new Error('The AI response was not valid JSON. Please try again.');
 }
 
 // ---- normalise the model output into the exact game shape -----------------
@@ -162,9 +138,9 @@ function shapeForGame(raw, topic) {
     const questions = (Array.isArray(L.questions) ? L.questions : [])
       .map(q => {
         let opts = (Array.isArray(q.options) ? q.options : []).map(o => clampStr(o, 200)).filter(Boolean);
-        if (opts.length < 2) return null;                 // unusable
+        if (opts.length < 2) return null;                       // unusable
         while (opts.length < 4) opts.push('None of the above'); // pad
-        opts = opts.slice(0, 4);                           // trim
+        opts = opts.slice(0, 4);                                // trim to 4
         return { q: clampStr(q.question, 400), c: opts, why: clampStr(q.explanation, 300) };
       })
       .filter(Boolean);
@@ -210,13 +186,12 @@ exports.handler = async (event) => {
     return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Use POST.' }) };
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!API_KEY) {
     return {
       statusCode: 500,
       headers: CORS,
       body: JSON.stringify({
-        error: 'The site is not configured yet. The owner needs to add a free GEMINI_API_KEY in Netlify → Site settings → Environment variables. See README.'
+        error: 'The site is not configured yet. The owner needs to add TENSORX_API_KEY in Netlify → Site settings → Environment variables. See README.'
       })
     };
   }
@@ -227,7 +202,7 @@ exports.handler = async (event) => {
   if (topic.length > 120) topic = topic.slice(0, 120);
 
   try {
-    const raw = await callGemini(topic, apiKey);
+    const raw = await callModel(topic);
     const shaped = shapeForGame(raw, topic);
     if (!shaped.levels.length) throw new Error('Could not build questions for that topic. Try rephrasing it.');
     return {
